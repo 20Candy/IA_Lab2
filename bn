@@ -1,0 +1,7 @@
+digraph {
+	A [shape=circle];
+	B [shape=circle];
+	A -> B;
+	C [shape=circle];
+	A -> C;
+}
