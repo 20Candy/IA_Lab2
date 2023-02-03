@@ -13,11 +13,26 @@ class BayesianNetwork:
     def __init__(self):
         self.nodes = []
         self.variable_values = {}
-
-    def add_node(self, node):        
+        self.variables = []
+    
+    def add_node(self, node):
         self.nodes.append(node)
         self.variable_values[node.name] = node.values
         self.variables.append(node.name)
+
+    def probability(self, variable, evidence):
+        prob = 1
+        for node in self.nodes:
+            if node.name == variable:
+                for parent_assignment in node.parents:
+                    parent_assignment_match = True
+                    for parent, value in zip(node.parents, parent_assignment.split("&")):
+                        if evidence.get(parent.name, None) != value:
+                            parent_assignment_match = False
+                            break
+                    if parent_assignment_match:
+                        prob *= p
+        return prob
 
 
 #is_fully_described takes a BayesianNetwork instance and returns a boolean indicating whether the network is fully described, which is defined as whether all of the nodes have a conditional probability distribution.
