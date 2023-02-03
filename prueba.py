@@ -2,24 +2,22 @@ from graphviz import Source
 from collections import defaultdict
 
 class Node:
-    def __init__(self, name, parents, cpd):
+    def __init__(self, name, parents, cpd, values):
         self.name = name
         self.parents = parents
         self.cpd = cpd
+        self.values = values
+
         
 class BayesianNetwork:
     def __init__(self):
         self.nodes = []
+        self.variable_values = {}
 
     def add_node(self, node):        
         self.nodes.append(node)
-
-    def get_probability(self, node_name, value, evidence):
-        node = self.nodes[node_name]
-        if not node.parents:
-            return node.cpd[value]
-        parent_values = [evidence[parent.name] for parent in node.parents]
-        return node.cpd[tuple(parent_values)][value]
+        self.variable_values[node.name] = node.values
+        self.variables.append(node.name)
 
 
 #is_fully_described takes a BayesianNetwork instance and returns a boolean indicating whether the network is fully described, which is defined as whether all of the nodes have a conditional probability distribution.
@@ -53,27 +51,42 @@ def getFactors(bayesian_network):
 
 
 # Use the enumeration algorithm to perform inference
-def enumerate_all(bn, variables, evidence):
-    if not variables:
+
+def enumeration_ask(X, e, bn):
+    Q = {}
+    for xi in bn.variable_values[X]:
+        e[X] = xi
+        Q[xi] = enumerate_all(bn.variables, e, bn)
+    return normalize(Q)
+
+def enumerate_all(variables, e, bn):
+    if len(variables) == 0:
         return 1.0
     Y = variables[0]
-    if Y in evidence:
-        return bn.get_probability(0, evidence[Y], evidence) * enumerate_all(bn, variables[1:], evidence)
+    if Y in e:
+        return bn.probability(Y, e) * enumerate_all(variables[1:], e, bn)
     else:
-        return sum(bn.get_probability(0, y, evidence) * enumerate_all(bn, variables[1:], evidence) for y in [True, False])
-    
-    
+        sum = 0
+        for yi in bn.variable_values[Y]:
+            e[Y] = yi
+            sum += bn.probability(Y, e) * enumerate_all(variables[1:], e, bn)
+        del e[Y]
+        return sum
 
-def query(bn, query):
-    variables = list(query.keys())
-    evidence = query
-    return enumerate_all(bn, variables, evidence)
+def normalize(Q):
+    total = sum(Q.values())
+    for key in Q:
+        Q[key] /= total
+    return Q
+
+
 
 
 # Create nodes
-A = Node("A", [], 0.5)
-B = Node("B", [A], {"A=True": 0.8, "A=False": 0.2})
-C = Node("C", [A], {"A=True": 0.6, "A=False": 0.4})
+A = Node("A", [], 0.5, ["True", "False"])
+B = Node("B", [A], {"A=True": 0.8, "A=False": 0.2}, ["True", "False"])
+C = Node("C", [A], {"A=True": 0.6, "A=False": 0.4}, ["True", "False"])
+
 
 #n this example, we create three nodes A, B, and C, and a Bayesian network bn. The node A does not have any parents and has a prior probability of 0.5. The nodes B and C have A as their parent, and their conditional probability distributions are represented as dictionaries mapping from the parent node's possible values to the probability of the node taking a certain value given those values. 
 
@@ -86,10 +99,20 @@ bn.add_node(C)
 
 #--------------------------------------------------------------------
 # Check if fully described
-print(is_fully_described(bn)) # Output: True
+
+print("Iniciso 1. Verificar si es completamente descrita")
+descrita = is_fully_described(bn)
+
+if(descrita):
+    print("Es completamente descrita")
+
+else:
+    print("No es completamente descrita")
+
 
 #--------------------------------------------------------------------
 
+print("\nIniciso2. Representacion en String")
 # Print DOT string
 dot_string = to_dot_string(bn)
 print(dot_string)
@@ -99,17 +122,19 @@ source.render("bn", view=True)
 
 #--------------------------------------------------------------------
 
-
 #Factors in a Bayesian network represent the conditional probability distributions of the random variables in the network.
 # A factor can be represented as a dictionary in which the keys are the variables in the factor and the values are the corresponding probabilities
 
+print("\nIniciso3. Factores")
 print(getFactors(bn))
 
 #--------------------------------------------------------------------
 
+print("\nIniciso4. Algoritmo de enumeracion")
 #enumeration algotihtm
 # Define the query
-q = {"A": "True", "B": "True", "C": "True"}
+query = {"A": "True", "B": "True", "C": "True"}
 
-print(query(bn, q))
+result = enumeration_ask("A", query, bn)
+print(result)
 
