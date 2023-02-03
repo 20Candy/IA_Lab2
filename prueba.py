@@ -20,19 +20,15 @@ class BayesianNetwork:
         self.variable_values[node.name] = node.values
         self.variables.append(node.name)
 
+    #probability
     def probability(self, variable, evidence):
-        prob = 1
-        for node in self.nodes:
-            if node.name == variable:
-                for parent_assignment in node.parents:
-                    parent_assignment_match = True
-                    for parent, value in zip(node.parents, parent_assignment.split("&")):
-                        if evidence.get(parent.name, None) != value:
-                            parent_assignment_match = False
-                            break
-                    if parent_assignment_match:
-                        prob *= p
-        return prob
+        node = [node for node in self.nodes if node.name == variable][0]
+        if not node.parents:
+            return node.cpd
+        parent_values = [evidence[parent.name] for parent in node.parents]
+        parent_values_string = ", ".join([f"{parent.name}={value}" for parent, value in zip(node.parents, parent_values)])
+        return node.cpd[f"{parent_values_string}"]
+
 
 
 #is_fully_described takes a BayesianNetwork instance and returns a boolean indicating whether the network is fully described, which is defined as whether all of the nodes have a conditional probability distribution.
@@ -65,36 +61,28 @@ def getFactors(bayesian_network):
     return factors
 
 
-# Use the enumeration algorithm to perform inference
-
+#create enuumeration_ask using addition and marginalization
 def enumeration_ask(X, e, bn):
-    Q = {}
+    Q = defaultdict(float)
     for xi in bn.variable_values[X]:
         e[X] = xi
         Q[xi] = enumerate_all(bn.variables, e, bn)
-    return normalize(Q)
+    normalize(Q)
+    return Q
 
 def enumerate_all(variables, e, bn):
-    if len(variables) == 0:
+    if not variables:
         return 1.0
     Y = variables[0]
     if Y in e:
         return bn.probability(Y, e) * enumerate_all(variables[1:], e, bn)
     else:
-        sum = 0
-        for yi in bn.variable_values[Y]:
-            e[Y] = yi
-            sum += bn.probability(Y, e) * enumerate_all(variables[1:], e, bn)
-        del e[Y]
-        return sum
-
+        return sum(bn.probability(Y, {**e, Y: y}) * enumerate_all(variables[1:], e, bn) for y in bn.variable_values[Y])
+    
 def normalize(Q):
     total = sum(Q.values())
     for key in Q:
         Q[key] /= total
-    return Q
-
-
 
 
 # Create nodes
