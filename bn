@@ -1,7 +1,11 @@
 digraph {
-	A [shape=circle];
-	B [shape=circle];
-	A -> B;
-	C [shape=circle];
-	A -> C;
+	Earthquake [shape=circle];
+	Burglary [shape=circle];
+	Alarm [shape=circle];
+	Earthquake -> Alarm;
+	Burglary -> Alarm;
+	JohnCalls [shape=circle];
+	Alarm -> JohnCalls;
+	MaryCalls [shape=circle];
+	Alarm -> MaryCalls;
 }

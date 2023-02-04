@@ -1,10 +1,12 @@
 from graphviz import Source
 from collections import defaultdict
+import itertools
+
 
 class Node:
     def __init__(self, name, parents, cpd, values):
         self.name = name
-        self.parents = parents
+        self.parents = parents if parents else []
         self.cpd = cpd
         self.values = values
 
@@ -20,25 +22,37 @@ class BayesianNetwork:
         self.variable_values[node.name] = node.values
         self.variables.append(node.name)
 
-    #probability
+    def get_node(self, name):
+        return [node for node in self.nodes if node.name == name][0]
+    
+    def get_parents(self, name):
+        return [node for node in self.nodes if name in [parent.name for parent in node.parents]]
+
+    def get_children(self, name):
+        return [node for node in self.nodes if node.name in [parent.name for parent in self.get_parents(name)]]
+
     def probability(self, variable, evidence):
-        node = [node for node in self.nodes if node.name == variable][0]
+        node = self.get_node(variable)
         if not node.parents:
             return node.cpd
-        parent_values = [evidence[parent.name] for parent in node.parents]
-        parent_values_string = ", ".join([f"{parent.name}={value}" for parent, value in zip(node.parents, parent_values)])
-        return node.cpd[f"{parent_values_string}"]
+        else:
+            parent_values = [evidence[parent.name] for parent in node.parents]
+            parent_values_string = ", ".join([f"{parent.name}={value}" for parent, value in zip(node.parents, parent_values)])
+            return node.cpd[parent_values_string]
 
 
 
-#is_fully_described takes a BayesianNetwork instance and returns a boolean indicating whether the network is fully described, which is defined as whether all of the nodes have a conditional probability distribution.
-def is_fully_described(bayesian_network):
-    for node in bayesian_network.nodes:
-        if node.cpd is None:
-            return False
+def is_fully_described(bn):
+    for node in bn.nodes:
+        if not node.parents:
+            if node.cpd not in [0, 1]:
+                return False
+        else:
+            parent_values = list(itertools.product(*[bn.variable_values[parent.name] for parent in node.parents]))
+            parent_values_string = ", ".join([f"{parent.name}={value}" for parent, value in zip(node.parents, parent_values)])
+            if node.cpd[parent_values_string] not in [0, 1]:
+                return False
     return True
-
-#This code defines a function to_dot_string that takes a BayesianNetwork instance and returns a string representation of the network in the DOT language. The function starts by creating an empty string dot_string and adding the opening and closing tags for a directed graph, "digraph {\n" and "}". For each node in the network, the function adds a line to dot_string that defines the node and sets its shape to a circle. Then, for each parent of the node, the function adds a line to dot_string that creates an edge from the parent to the node. Finally, the function returns the dot_string.
 
 def to_dot_string(bayesian_network):
     dot_string = "digraph {\n"
@@ -64,7 +78,7 @@ def getFactors(bayesian_network):
 #create enuumeration_ask using addition and marginalization
 def enumeration_ask(X, e, bn):
     Q = defaultdict(float)
-    for xi in bn.variable_values[X]:
+    for xi in bn.variable_values[X.name]:
         e[X] = xi
         Q[xi] = enumerate_all(bn.variables, e, bn)
     normalize(Q)
@@ -86,18 +100,21 @@ def normalize(Q):
 
 
 # Create nodes
-A = Node("A", [], 0.5, ["True", "False"])
-B = Node("B", [A], {"A=True": 0.8, "A=False": 0.2}, ["True", "False"])
-C = Node("C", [A], {"A=True": 0.6, "A=False": 0.4}, ["True", "False"])
+#Name, parents, cpd, values
+A = Node("Earthquake", [], 0.001, ["True", "False"])
+B = Node("Burglary", [], 0.002, ["True", "False"])
+C = Node("Alarm", [A, B], {"A=True, B=True": 0.95, "A=True, B=False": 0.94, "A=False, B=True": 0.29, "A=False, B=False": 0.001}, ["True", "False"])
+D = Node("JohnCalls", [C], {"C=True": 0.9, "C=False": 0.1}, ["True", "False"])
+E = Node("MaryCalls", [C], {"C=True": 0.7, "C=False": 0.3}, ["True", "False"])
 
-
-#n this example, we create three nodes A, B, and C, and a Bayesian network bn. The node A does not have any parents and has a prior probability of 0.5. The nodes B and C have A as their parent, and their conditional probability distributions are represented as dictionaries mapping from the parent node's possible values to the probability of the node taking a certain value given those values. 
 
 # Create Bayesian network
 bn = BayesianNetwork()
 bn.add_node(A)
 bn.add_node(B)
 bn.add_node(C)
+bn.add_node(D)
+bn.add_node(E)
 
 
 #--------------------------------------------------------------------
@@ -125,8 +142,6 @@ source.render("bn", view=True)
 
 #--------------------------------------------------------------------
 
-#Factors in a Bayesian network represent the conditional probability distributions of the random variables in the network.
-# A factor can be represented as a dictionary in which the keys are the variables in the factor and the values are the corresponding probabilities
 
 print("\nIniciso3. Factores")
 print(getFactors(bn))
@@ -134,10 +149,7 @@ print(getFactors(bn))
 #--------------------------------------------------------------------
 
 print("\nIniciso4. Algoritmo de enumeracion")
-#enumeration algotihtm
-# Define the query
-query = {"A": "True", "B": "True", "C": "True"}
 
-result = enumeration_ask("A", query, bn)
-print(result)
+probability = enumeration_ask(E, {A: True},bn)
+print(probability)
 
